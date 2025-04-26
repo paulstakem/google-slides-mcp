@@ -19,7 +19,14 @@ This project provides a Model Context Protocol (MCP) server for interacting with
     npm install
     ```
 
-3.  **Obtain Google API Credentials:**
+3.  **Build the Server:**
+    Compile the TypeScript code to JavaScript:
+    ```bash
+    npm run build
+    ```
+    This will create a `build` directory containing the compiled JavaScript code.
+
+4.  **Obtain Google API Credentials:**
     *   Go to the [Google Cloud Console](https://console.cloud.google.com/).
     *   Create a new project or select an existing one.
     *   Navigate to "APIs & Services" > "Enabled APIs & services".
@@ -36,7 +43,7 @@ This project provides a Model Context Protocol (MCP) server for interacting with
     *   Give it a name (e.g., "Slides MCP Client").
     *   Click "Create". You will see your **Client ID** and **Client Secret**. **Copy these down securely.** You can also download the JSON file containing these credentials.
 
-4.  **Obtain a Google Refresh Token:**
+5.  **Obtain a Google Refresh Token:**
     *   A refresh token allows the server to obtain new access tokens without requiring user interaction each time. Generating one typically involves a one-time authorization flow.
     *   You can use the [Google OAuth 2.0 Playground](https://developers.google.com/oauthplayground/) for this:
         *   Go to the OAuth 2.0 Playground.
@@ -49,30 +56,24 @@ This project provides a Model Context Protocol (MCP) server for interacting with
         *   Grant the requested permissions.
         *   You will be redirected back to the Playground. In "Step 2 - Exchange authorization code for tokens", you should see the **Refresh token** and Access token. **Copy the Refresh token securely.**
 
-5.  **Configure Credentials in MCP Settings:**
-    Locate your MCP settings file (e.g., `.../User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json`). Find the entry for `"google-slides-mcp"` and update its `"env"` block with your actual credentials:
+6.  **Configure Credentials and Command in MCP Settings:**
+    Locate your MCP settings file (e.g., `.../User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json`). Find or create the entry for `"google-slides-mcp"` and configure it with the command to run the server and your credentials:
     ```json
     "google-slides-mcp": {
-      // ... other settings ...
+      "transportType": "stdio",
+      "command": "node",
+      "args": [
+        "/path/to/google-slides-mcp/build/index.js"
+      ],
       "env": {
         "GOOGLE_CLIENT_ID": "YOUR_CLIENT_ID",
         "GOOGLE_CLIENT_SECRET": "YOUR_CLIENT_SECRET",
         "GOOGLE_REFRESH_TOKEN": "YOUR_REFRESH_TOKEN"
       }
-      // ... other settings ...
+      // ... other optional settings like description ...
     }
     ```
-    Replace `YOUR_CLIENT_ID`, `YOUR_CLIENT_SECRET`, and `YOUR_REFRESH_TOKEN` with the actual values you obtained. The MCP runner will inject these values into the server's environment when it starts.
-
-## Building the Server
-
-Compile the TypeScript code to JavaScript:
-
-```bash
-npm run build
-```
-
-This will create a `build` directory containing the compiled JavaScript code.
+    Replace `/path/to/google-slides-mcp/build/index.js` with the actual path to the compiled server index file on your system. Replace `YOUR_CLIENT_ID`, `YOUR_CLIENT_SECRET`, and `YOUR_REFRESH_TOKEN` with the actual values you obtained. The MCP runner will inject these values into the server's environment when it starts.
 
 ## Running the Server
 
