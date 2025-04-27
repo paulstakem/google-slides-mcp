@@ -113,4 +113,18 @@ The server exposes the following tools via the Model Context Protocol:
         *   `pageObjectId` (string, required): The object ID of the page (slide) to retrieve.
     *   **Output:** JSON object representing the page details.
 
+*   **`summarize_presentation`**: Extracts and formats all text content from a presentation for easier summarization.
+    *   **Input:**
+        *   `presentationId` (string, required): The ID of the presentation to summarize.
+        *   `include_notes` (boolean, optional): Whether to include speaker notes in the summary. Defaults to false.
+    *   **Output:** JSON object containing:
+        *   `title`: The presentation's title
+        *   `slideCount`: Total number of slides
+        *   `lastModified`: Revision information
+        *   `slides`: Array of slide objects containing:
+            *   `slideNumber`: Position in presentation
+            *   `slideId`: Object ID of the slide
+            *   `content`: All text extracted from the slide
+            *   `notes`: Speaker notes (if requested and available)
+
 *(More tools can be added by extending `src/index.ts`)*

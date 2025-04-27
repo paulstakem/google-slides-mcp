@@ -165,6 +165,24 @@ class GoogleSlidesServer {
               required: ['presentationId', 'pageObjectId'],
             },
           },
+          {
+            name: 'summarize_presentation',
+            description: 'Extract text content from all slides in a presentation for summarization purposes',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                presentationId: {
+                  type: 'string',
+                  description: 'The ID of the presentation to summarize.',
+                },
+                include_notes: {
+                  type: 'boolean',
+                  description: 'Optional. Whether to include speaker notes in the summary (default: false).',
+                }
+              },
+              required: ['presentationId'],
+            },
+          },
           // Add more tool definitions here as needed
         ],
       };
@@ -186,6 +204,8 @@ class GoogleSlidesServer {
             return await this.batchUpdatePresentation(args);
           case 'get_page':
              return await this.getPage(args);
+          case 'summarize_presentation':
+             return await this.summarizePresentation(args);
           // Add cases for other tools here
           default:
             // Handle unknown tool names
@@ -303,6 +323,107 @@ class GoogleSlidesServer {
       };
     } catch (error: any) {
       console.error('Google API Error (getPage):', error.response?.data || error.message);
+      throw new McpError(ErrorCode.InternalError, `Google API Error: ${error.response?.data?.error?.message || error.message}`);
+    }
+  }
+
+  // Implementation for 'summarize_presentation'
+  private async summarizePresentation(args: any) {
+    if (!args.presentationId || typeof args.presentationId !== 'string') {
+      throw new McpError(ErrorCode.InvalidParams, 'Invalid or missing "presentationId" argument (string required).');
+    }
+
+    const includeNotes = args.include_notes === true;
+
+    try {
+      // First, get the entire presentation
+      const presentationResponse = await this.slides.presentations.get({
+        presentationId: args.presentationId,
+      });
+      
+      const presentation = presentationResponse.data;
+      if (!presentation.slides || presentation.slides.length === 0) {
+        return {
+          content: [{ type: 'text', text: JSON.stringify({ 
+            title: presentation.title || 'Untitled Presentation',
+            slideCount: 0,
+            summary: 'This presentation contains no slides.' 
+          }, null, 2) }],
+        };
+      }
+
+      // Process each slide to extract text content
+      const slidesContent = presentation.slides.map((slide, index) => {
+        const slideNumber = index + 1;
+        let slideText: string[] = [];
+        let notes = '';
+
+        // Extract text from text elements, shapes, tables, etc.
+        if (slide.pageElements) {
+          slide.pageElements.forEach(element => {
+            // Extract text from shape elements (most common text container)
+            if (element.shape && element.shape.text && element.shape.text.textElements) {
+              element.shape.text.textElements.forEach(textElement => {
+                if (textElement.textRun && textElement.textRun.content) {
+                  slideText.push(textElement.textRun.content.trim());
+                }
+              });
+            }
+            
+            // Extract text from tables
+            if (element.table && element.table.tableRows) {
+              element.table.tableRows.forEach(row => {
+                if (row.tableCells) {
+                  row.tableCells.forEach(cell => {
+                    if (cell.text && cell.text.textElements) {
+                      cell.text.textElements.forEach(textElement => {
+                        if (textElement.textRun && textElement.textRun.content) {
+                          slideText.push(textElement.textRun.content.trim());
+                        }
+                      });
+                    }
+                  });
+                }
+              });
+            }
+          });
+        }
+
+        // Extract speaker notes if requested
+        if (includeNotes && slide.slideProperties && slide.slideProperties.notesPage && 
+            slide.slideProperties.notesPage.pageElements) {
+          slide.slideProperties.notesPage.pageElements.forEach(element => {
+            if (element.shape && element.shape.text && element.shape.text.textElements) {
+              element.shape.text.textElements.forEach(textElement => {
+                if (textElement.textRun && textElement.textRun.content) {
+                  notes += textElement.textRun.content.trim() + ' ';
+                }
+              });
+            }
+          });
+        }
+
+        return {
+          slideNumber,
+          slideId: slide.objectId || `slide_${slideNumber}`,
+          content: slideText.filter(text => text.length > 0).join(' '),
+          ...(includeNotes && notes ? { notes: notes.trim() } : {})
+        };
+      });
+
+      // Create the summary object
+      const summary = {
+        title: presentation.title || 'Untitled Presentation',
+        slideCount: slidesContent.length,
+        lastModified: presentation.revisionId ? `Revision ${presentation.revisionId}` : 'Unknown',
+        slides: slidesContent
+      };
+
+      return {
+        content: [{ type: 'text', text: JSON.stringify(summary, null, 2) }],
+      };
+    } catch (error: any) {
+      console.error('Google API Error (summarizePresentation):', error.response?.data || error.message);
       throw new McpError(ErrorCode.InternalError, `Google API Error: ${error.response?.data?.error?.message || error.message}`);
     }
   }
