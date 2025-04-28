@@ -62,4 +62,4 @@ const initializeAndRunServer = async () => {
   }
 };
 
-initializeAndRunServer();
+void initializeAndRunServer();
