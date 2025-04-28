@@ -5,46 +5,74 @@ import {
   CallToolRequestSchema,
   ErrorCode,
   ListToolsRequestSchema,
-  McpError,
-  Request
+  McpError
 } from '@modelcontextprotocol/sdk/types.js';
-import { google, slides_v1 } from 'googleapis'; // Import slides_v1 specifically
+import { google, slides_v1 } from 'googleapis';
 import { OAuth2Client } from 'google-auth-library';
+import { z } from 'zod';
 
-// --- Authentication ---
-// Retrieve credentials from environment variables
+const CreatePresentationArgsSchema = z.object({
+  title: z.string().min(1, { message: '"title" (string) is required.' }),
+});
+type CreatePresentationArgs = z.infer<typeof CreatePresentationArgsSchema>;
+
+const GetPresentationArgsSchema = z.object({
+  presentationId: z.string().min(1, { message: '"presentationId" (string) is required.' }),
+  fields: z.string().optional(),
+});
+type GetPresentationArgs = z.infer<typeof GetPresentationArgsSchema>;
+
+const GoogleSlidesRequestSchema = z.any();
+const GoogleSlidesWriteControlSchema = z.any();
+
+const BatchUpdatePresentationArgsSchema = z.object({
+  presentationId: z.string().min(1, { message: '"presentationId" (string) is required.' }),
+  requests: z.array(GoogleSlidesRequestSchema).min(1, { message: '"requests" (array) is required.' }),
+  writeControl: GoogleSlidesWriteControlSchema.optional(),
+});
+type BatchUpdatePresentationArgs = z.infer<typeof BatchUpdatePresentationArgsSchema>;
+
+const GetPageArgsSchema = z.object({
+  presentationId: z.string().min(1, { message: '"presentationId" (string) is required.' }),
+  pageObjectId: z.string().min(1, { message: '"pageObjectId" (string) is required.' }),
+});
+type GetPageArgs = z.infer<typeof GetPageArgsSchema>;
+
+const SummarizePresentationArgsSchema = z.object({
+  presentationId: z.string().min(1, { message: '"presentationId" (string) is required.' }),
+  include_notes: z.boolean().optional(),
+});
+type SummarizePresentationArgs = z.infer<typeof SummarizePresentationArgsSchema>;
+
+
 const CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
 const REFRESH_TOKEN = process.env.GOOGLE_REFRESH_TOKEN;
 
-// Validate that credentials are provided
 if (!CLIENT_ID || !CLIENT_SECRET || !REFRESH_TOKEN) {
   console.error('Error: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, and GOOGLE_REFRESH_TOKEN environment variables are required.');
   console.error('Please refer to the README.md for instructions on obtaining these credentials.');
-  process.exit(1); // Exit if credentials are missing
+  process.exit(1);
 }
 
-// --- Server Class ---
 class GoogleSlidesServer {
   private server: Server;
   private oauth2Client: OAuth2Client;
-  private slides: slides_v1.Slides; // Use the specific Slides type
+  private slides: slides_v1.Slides;
 
   constructor() {
-    // Initialize MCP Server
     this.server = new Server(
       {
-        name: 'google-slides-mcp', // Server name
-        version: '0.1.0',          // Server version
+        name: 'google-slides-mcp',
+        version: '0.1.0',
       },
       {
         capabilities: {
-          tools: {}, // Tools will be defined in setupToolHandlers
+          tools: {},
         },
       }
     );
 
-    // Initialize Google OAuth2 Client
     this.oauth2Client = new google.auth.OAuth2(
       CLIENT_ID,
       CLIENT_SECRET
@@ -53,19 +81,15 @@ class GoogleSlidesServer {
       refresh_token: REFRESH_TOKEN
     });
 
-    // Initialize Google Slides API Client
     this.slides = google.slides({
       version: 'v1',
       auth: this.oauth2Client
     });
 
-    // Set up request handlers for MCP tools
     this.setupToolHandlers();
 
-    // Basic error handling for the MCP server
     this.server.onerror = (error: Error) => console.error('[MCP Server Error]', error);
 
-    // Handle graceful shutdown
     process.on('SIGINT', async () => {
       console.log('Received SIGINT, shutting down server...');
       await this.server.close();
@@ -78,15 +102,10 @@ class GoogleSlidesServer {
     });
   }
 
-  // --- Tool Handlers Setup ---
   private setupToolHandlers() {
-    // Handler for ListTools request
-    // The return type is inferred from the schema
     this.server.setRequestHandler(ListToolsRequestSchema, async () => {
-      // Define the tools provided by this server
       return {
         tools: [
-          // --- Presentation Tools ---
           {
             name: 'create_presentation',
             description: 'Create a new Google Slides presentation',
@@ -132,7 +151,7 @@ class GoogleSlidesServer {
                 requests: {
                   type: 'array',
                   description: 'A list of update requests to apply. See Google Slides API documentation for request structures.',
-                  items: { type: 'object' } // Define specific request types later if needed
+                  items: { type: 'object' }
                 },
                 writeControl: {
                    type: 'object',
@@ -146,7 +165,6 @@ class GoogleSlidesServer {
               required: ['presentationId', 'requests'],
             },
           },
-           // --- Page/Slide Tools (Optional examples) ---
           {
             name: 'get_page',
             description: 'Get details about a specific page (slide) in a presentation',
@@ -183,45 +201,64 @@ class GoogleSlidesServer {
               required: ['presentationId'],
             },
           },
-          // Add more tool definitions here as needed
         ],
       };
     });
 
-    // Handler for CallTool request
-    // The request and response types are inferred from the schema
     this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const { name, arguments: args } = request.params;
 
       try {
-        // Route the call to the appropriate tool implementation method
+        if (args === undefined) {
+          throw new McpError(ErrorCode.InvalidParams, `Missing arguments for tool "${name}".`);
+        }
+
         switch (name) {
-          case 'create_presentation':
-            return await this.createPresentation(args);
-          case 'get_presentation':
-            return await this.getPresentation(args);
-          case 'batch_update_presentation':
-            return await this.batchUpdatePresentation(args);
-          case 'get_page':
-             return await this.getPage(args);
-          case 'summarize_presentation':
-             return await this.summarizePresentation(args);
-          // Add cases for other tools here
+          case 'create_presentation': {
+            const parsedArgs = CreatePresentationArgsSchema.parse(args);
+            return await this.createPresentation(parsedArgs);
+          }
+          case 'get_presentation': {
+            const parsedArgs = GetPresentationArgsSchema.parse(args);
+            return await this.getPresentation(parsedArgs);
+          }
+          case 'batch_update_presentation': {
+            const parsedArgs = BatchUpdatePresentationArgsSchema.parse(args);
+            return await this.batchUpdatePresentation(parsedArgs);
+          }
+          case 'get_page': {
+            const parsedArgs = GetPageArgsSchema.parse(args);
+             return await this.getPage(parsedArgs);
+          }
+          case 'summarize_presentation': {
+            const parsedArgs = SummarizePresentationArgsSchema.parse(args);
+             return await this.summarizePresentation(parsedArgs);
+          }
           default:
-            // Handle unknown tool names
             throw new McpError(
               ErrorCode.MethodNotFound,
               `Unknown tool requested: ${name}`
             );
         }
-      } catch (error: any) {
-        // Catch errors during tool execution and return an MCP error response
+      } catch (error: unknown) {
         console.error(`Error executing tool "${name}":`, error);
-        // Check if it's already an McpError, otherwise wrap it
-        const mcpError = error instanceof McpError ? error : new McpError(
-          ErrorCode.InternalError,
-          `Failed to execute tool "${name}": ${error.message || 'Unknown error'}`
-        );
+
+        let mcpError: McpError;
+        if (error instanceof z.ZodError) {
+          const validationErrors = error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join('; ');
+          mcpError = new McpError(ErrorCode.InvalidParams, `Invalid arguments for tool "${name}": ${validationErrors}`);
+        } else if (error instanceof McpError) {
+          mcpError = error;
+        } else {
+          let errorMessage = 'Unknown error';
+          if (error instanceof Error) {
+            errorMessage = error.message;
+          } else if (typeof error === 'string') {
+            errorMessage = error;
+          }
+          mcpError = new McpError(ErrorCode.InternalError, `Failed to execute tool "${name}": ${errorMessage}`);
+        }
+
         return {
           content: [{ type: 'text', text: mcpError.message }],
           isError: true,
@@ -231,15 +268,7 @@ class GoogleSlidesServer {
     });
   }
 
-  // --- Tool Implementation Methods ---
-
-  // Implementation for 'create_presentation'
-  // Return type is inferred
-  private async createPresentation(args: any) {
-    if (!args.title || typeof args.title !== 'string') {
-      throw new McpError(ErrorCode.InvalidParams, 'Invalid or missing "title" argument (string required).');
-    }
-
+  private async createPresentation(args: CreatePresentationArgs) {
     try {
       const response = await this.slides.presentations.create({
         requestBody: {
@@ -249,70 +278,67 @@ class GoogleSlidesServer {
       return {
         content: [{ type: 'text', text: JSON.stringify(response.data, null, 2) }],
       };
-    } catch (error: any) {
-      console.error('Google API Error (createPresentation):', error.response?.data || error.message);
-      throw new McpError(ErrorCode.InternalError, `Google API Error: ${error.response?.data?.error?.message || error.message}`);
+    } catch (error: unknown) {
+      let errorMessage = 'Unknown Google API error';
+      if (typeof error === 'object' && error !== null && 'response' in error) {
+        const gError = error as { response?: { data?: { error?: { message?: string } } } };
+        errorMessage = gError.response?.data?.error?.message || (error instanceof Error ? error.message : String(error));
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      console.error('Google API Error (createPresentation):', error);
+      throw new McpError(ErrorCode.InternalError, `Google API Error: ${errorMessage}`);
     }
   }
 
-  // Implementation for 'get_presentation'
-  // Return type is inferred
-  private async getPresentation(args: any) {
-    if (!args.presentationId || typeof args.presentationId !== 'string') {
-      throw new McpError(ErrorCode.InvalidParams, 'Invalid or missing "presentationId" argument (string required).');
-    }
-
+  private async getPresentation(args: GetPresentationArgs) {
     try {
       const response = await this.slides.presentations.get({
         presentationId: args.presentationId,
-        fields: args.fields, // Pass fields mask if provided
+        fields: args.fields,
       });
       return {
         content: [{ type: 'text', text: JSON.stringify(response.data, null, 2) }],
       };
-    } catch (error: any) {
-      console.error('Google API Error (getPresentation):', error.response?.data || error.message);
-      throw new McpError(ErrorCode.InternalError, `Google API Error: ${error.response?.data?.error?.message || error.message}`);
+    } catch (error: unknown) {
+      let errorMessage = 'Unknown Google API error';
+      if (typeof error === 'object' && error !== null && 'response' in error) {
+        const gError = error as { response?: { data?: { error?: { message?: string } } } };
+        errorMessage = gError.response?.data?.error?.message || (error instanceof Error ? error.message : String(error));
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      console.error('Google API Error (getPresentation):', error);
+      throw new McpError(ErrorCode.InternalError, `Google API Error: ${errorMessage}`);
     }
   }
 
-  // Implementation for 'batch_update_presentation'
-  // Return type is inferred
-  private async batchUpdatePresentation(args: any) {
-    if (!args.presentationId || typeof args.presentationId !== 'string') {
-      throw new McpError(ErrorCode.InvalidParams, 'Invalid or missing "presentationId" argument (string required).');
-    }
-    if (!args.requests || !Array.isArray(args.requests)) {
-      throw new McpError(ErrorCode.InvalidParams, 'Invalid or missing "requests" argument (array required).');
-    }
-
+  private async batchUpdatePresentation(args: BatchUpdatePresentationArgs) {
     try {
       const response = await this.slides.presentations.batchUpdate({
         presentationId: args.presentationId,
         requestBody: {
           requests: args.requests,
-          writeControl: args.writeControl, // Pass writeControl if provided
+          writeControl: args.writeControl,
         },
       });
       return {
         content: [{ type: 'text', text: JSON.stringify(response.data, null, 2) }],
       };
-    } catch (error: any) {
-      console.error('Google API Error (batchUpdatePresentation):', error.response?.data || error.message);
-      throw new McpError(ErrorCode.InternalError, `Google API Error: ${error.response?.data?.error?.message || error.message}`);
+    } catch (error: unknown) {
+       let errorMessage = 'Unknown Google API error';
+      if (typeof error === 'object' && error !== null && 'response' in error) {
+        const gError = error as { response?: { data?: { error?: { message?: string } } } };
+        errorMessage = gError.response?.data?.error?.message || (error instanceof Error ? error.message : String(error));
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      console.error('Google API Error (batchUpdatePresentation):', error);
+      throw new McpError(ErrorCode.InternalError, `Google API Error: ${errorMessage}`);
     }
   }
 
-   // Implementation for 'get_page'
-   // Return type is inferred
-  private async getPage(args: any) {
-    if (!args.presentationId || typeof args.presentationId !== 'string') {
-      throw new McpError(ErrorCode.InvalidParams, 'Invalid or missing "presentationId" argument (string required).');
-    }
-     if (!args.pageObjectId || typeof args.pageObjectId !== 'string') {
-      throw new McpError(ErrorCode.InvalidParams, 'Invalid or missing "pageObjectId" argument (string required).');
-    }
-
+  private async getPage(args: GetPageArgs) {
     try {
       const response = await this.slides.presentations.pages.get({
         presentationId: args.presentationId,
@@ -321,47 +347,45 @@ class GoogleSlidesServer {
       return {
         content: [{ type: 'text', text: JSON.stringify(response.data, null, 2) }],
       };
-    } catch (error: any) {
-      console.error('Google API Error (getPage):', error.response?.data || error.message);
-      throw new McpError(ErrorCode.InternalError, `Google API Error: ${error.response?.data?.error?.message || error.message}`);
+    } catch (error: unknown) {
+      let errorMessage = 'Unknown Google API error';
+      if (typeof error === 'object' && error !== null && 'response' in error) {
+        const gError = error as { response?: { data?: { error?: { message?: string } } } };
+        errorMessage = gError.response?.data?.error?.message || (error instanceof Error ? error.message : String(error));
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      console.error('Google API Error (getPage):', error);
+      throw new McpError(ErrorCode.InternalError, `Google API Error: ${errorMessage}`);
     }
   }
 
-  // Implementation for 'summarize_presentation'
-  private async summarizePresentation(args: any) {
-    if (!args.presentationId || typeof args.presentationId !== 'string') {
-      throw new McpError(ErrorCode.InvalidParams, 'Invalid or missing "presentationId" argument (string required).');
-    }
-
+  private async summarizePresentation(args: SummarizePresentationArgs) {
     const includeNotes = args.include_notes === true;
 
     try {
-      // First, get the entire presentation
       const presentationResponse = await this.slides.presentations.get({
         presentationId: args.presentationId,
       });
-      
+
       const presentation = presentationResponse.data;
       if (!presentation.slides || presentation.slides.length === 0) {
         return {
-          content: [{ type: 'text', text: JSON.stringify({ 
+          content: [{ type: 'text', text: JSON.stringify({
             title: presentation.title || 'Untitled Presentation',
             slideCount: 0,
-            summary: 'This presentation contains no slides.' 
+            summary: 'This presentation contains no slides.'
           }, null, 2) }],
         };
       }
 
-      // Process each slide to extract text content
       const slidesContent = presentation.slides.map((slide, index) => {
         const slideNumber = index + 1;
         let slideText: string[] = [];
         let notes = '';
 
-        // Extract text from text elements, shapes, tables, etc.
         if (slide.pageElements) {
           slide.pageElements.forEach(element => {
-            // Extract text from shape elements (most common text container)
             if (element.shape && element.shape.text && element.shape.text.textElements) {
               element.shape.text.textElements.forEach(textElement => {
                 if (textElement.textRun && textElement.textRun.content) {
@@ -369,8 +393,7 @@ class GoogleSlidesServer {
                 }
               });
             }
-            
-            // Extract text from tables
+
             if (element.table && element.table.tableRows) {
               element.table.tableRows.forEach(row => {
                 if (row.tableCells) {
@@ -389,8 +412,7 @@ class GoogleSlidesServer {
           });
         }
 
-        // Extract speaker notes if requested
-        if (includeNotes && slide.slideProperties && slide.slideProperties.notesPage && 
+        if (includeNotes && slide.slideProperties && slide.slideProperties.notesPage &&
             slide.slideProperties.notesPage.pageElements) {
           slide.slideProperties.notesPage.pageElements.forEach(element => {
             if (element.shape && element.shape.text && element.shape.text.textElements) {
@@ -411,7 +433,6 @@ class GoogleSlidesServer {
         };
       });
 
-      // Create the summary object
       const summary = {
         title: presentation.title || 'Untitled Presentation',
         slideCount: slidesContent.length,
@@ -422,29 +443,34 @@ class GoogleSlidesServer {
       return {
         content: [{ type: 'text', text: JSON.stringify(summary, null, 2) }],
       };
-    } catch (error: any) {
-      console.error('Google API Error (summarizePresentation):', error.response?.data || error.message);
-      throw new McpError(ErrorCode.InternalError, `Google API Error: ${error.response?.data?.error?.message || error.message}`);
+    } catch (error: unknown) {
+      let errorMessage = 'Unknown Google API error';
+      if (typeof error === 'object' && error !== null && 'response' in error) {
+        const gError = error as { response?: { data?: { error?: { message?: string } } } };
+        errorMessage = gError.response?.data?.error?.message || (error instanceof Error ? error.message : String(error));
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      console.error('Google API Error (summarizePresentation):', error);
+      throw new McpError(ErrorCode.InternalError, `Google API Error: ${errorMessage}`);
     }
   }
 
-  // Add implementations for other tools here
-
-  // --- Run Method ---
-  // Connects the server to the transport (stdio in this case) and starts listening
   async run() {
     const transport = new StdioServerTransport();
     await this.server.connect(transport);
-    // Log to stderr so it doesn't interfere with stdout communication
     console.error('Google Slides MCP server running and connected via stdio.');
   }
 }
 
-// --- Server Instantiation and Execution ---
-// Create an instance of the server
 const server = new GoogleSlidesServer();
-// Run the server, catching any top-level errors during startup
-server.run().catch(error => {
-  console.error('Failed to start Google Slides MCP server:', error);
+server.run().catch((error: unknown) => {
+  let errorMessage = 'Unknown error';
+  if (error instanceof Error) {
+    errorMessage = error.message;
+  } else if (typeof error === 'string') {
+    errorMessage = error;
+  }
+  console.error('Failed to start Google Slides MCP server:', errorMessage, error);
   process.exit(1);
 });
