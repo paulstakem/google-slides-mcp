@@ -22,13 +22,14 @@ const extractErrorMessage = (err: unknown): string => {
  * @param toolFn - The actual async function implementing the tool's logic.
  * @returns A promise resolving to the CallToolResponse.
  */
-export async function executeTool<T>(
+export const executeTool = async <T>(
   slides: slides_v1.Slides,
   toolName: string,
   args: unknown,
   schema: z.ZodSchema<T>,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Required for compatibility with MCP SDK return types
   toolFn: (slides: slides_v1.Slides, parsedArgs: T) => Promise<any>
-) {
+) => {
   try {
     if (args === undefined) {
       throw new McpError(ErrorCode.InvalidParams, `Missing arguments for tool "${toolName}".`);
@@ -36,13 +37,15 @@ export async function executeTool<T>(
 
     const parsedArgs = schema.parse(args);
     return await toolFn(slides, parsedArgs);
-
   } catch (error: unknown) {
     console.error(`Error executing tool "${toolName}":`, error);
 
     if (error instanceof z.ZodError) {
-      const validationErrors = error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join('; ');
-      const mcpError = new McpError(ErrorCode.InvalidParams, `Invalid arguments for tool "${toolName}": ${validationErrors}`);
+      const validationErrors = error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join('; ');
+      const mcpError = new McpError(
+        ErrorCode.InvalidParams,
+        `Invalid arguments for tool "${toolName}": ${validationErrors}`
+      );
       return {
         content: [{ type: 'text', text: mcpError.message }],
         isError: true,
@@ -60,10 +63,10 @@ export async function executeTool<T>(
 
     const errorMessage = extractErrorMessage(error);
     const mcpError = new McpError(ErrorCode.InternalError, `Failed to execute tool "${toolName}": ${errorMessage}`);
-      return {
-        content: [{ type: 'text', text: mcpError.message }],
-        isError: true,
-        errorCode: mcpError.code,
-      };
-    }
-}
+    return {
+      content: [{ type: 'text', text: mcpError.message }],
+      isError: true,
+      errorCode: mcpError.code,
+    };
+  }
+};

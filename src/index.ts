@@ -1,11 +1,7 @@
 #!/usr/bin/env node
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import {
-  CallToolRequestSchema,
-  ErrorCode,
-  ListToolsRequestSchema
-} from '@modelcontextprotocol/sdk/types.js';
+import { CallToolRequestSchema, ErrorCode, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import { google, slides_v1 } from 'googleapis';
 import { OAuth2Client } from 'google-auth-library';
 import {
@@ -13,7 +9,7 @@ import {
   GetPresentationArgsSchema,
   BatchUpdatePresentationArgsSchema,
   GetPageArgsSchema,
-  SummarizePresentationArgsSchema
+  SummarizePresentationArgsSchema,
 } from './schemas.js';
 import { createPresentationTool } from './tools/createPresentation.js';
 import { getPresentationTool } from './tools/getPresentation.js';
@@ -27,7 +23,9 @@ const CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
 const REFRESH_TOKEN = process.env.GOOGLE_REFRESH_TOKEN;
 
 if (!CLIENT_ID || !CLIENT_SECRET || !REFRESH_TOKEN) {
-  console.error('Error: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, and GOOGLE_REFRESH_TOKEN environment variables are required.');
+  console.error(
+    'Error: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, and GOOGLE_REFRESH_TOKEN environment variables are required.'
+  );
   console.error('Please refer to the README.md for instructions on obtaining these credentials.');
   process.exit(1);
 }
@@ -50,17 +48,14 @@ class GoogleSlidesServer {
       }
     );
 
-    this.oauth2Client = new google.auth.OAuth2(
-      CLIENT_ID,
-      CLIENT_SECRET
-    );
+    this.oauth2Client = new google.auth.OAuth2(CLIENT_ID, CLIENT_SECRET);
     this.oauth2Client.setCredentials({
-      refresh_token: REFRESH_TOKEN
+      refresh_token: REFRESH_TOKEN,
     });
 
     this.slides = google.slides({
       version: 'v1',
-      auth: this.oauth2Client
+      auth: this.oauth2Client,
     });
 
     this.setupToolHandlers();
@@ -80,152 +75,122 @@ class GoogleSlidesServer {
   }
 
   private setupToolHandlers() {
-    this.server.setRequestHandler(ListToolsRequestSchema, async () => {
-      return {
-        tools: [
-          {
-            name: 'create_presentation',
-            description: 'Create a new Google Slides presentation',
-            inputSchema: {
-              type: 'object',
-              properties: {
-                title: {
-                  type: 'string',
-                  description: 'The title of the presentation.',
+    this.server.setRequestHandler(ListToolsRequestSchema, async () => ({
+      tools: [
+        {
+          name: 'create_presentation',
+          description: 'Create a new Google Slides presentation',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              title: {
+                type: 'string',
+                description: 'The title of the presentation.',
+              },
+            },
+            required: ['title'],
+          },
+        },
+        {
+          name: 'get_presentation',
+          description: 'Get details about a Google Slides presentation',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              presentationId: {
+                type: 'string',
+                description: 'The ID of the presentation to retrieve.',
+              },
+              fields: {
+                type: 'string',
+                description:
+                  'Optional. A mask specifying which fields to include in the response (e.g., "slides,pageSize").',
+              },
+            },
+            required: ['presentationId'],
+          },
+        },
+        {
+          name: 'batch_update_presentation',
+          description: 'Apply a batch of updates to a Google Slides presentation',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              presentationId: {
+                type: 'string',
+                description: 'The ID of the presentation to update.',
+              },
+              requests: {
+                type: 'array',
+                description:
+                  'A list of update requests to apply. See Google Slides API documentation for request structures.',
+                items: { type: 'object' },
+              },
+              writeControl: {
+                type: 'object',
+                description: 'Optional. Provides control over how write requests are executed.',
+                properties: {
+                  requiredRevisionId: { type: 'string' },
+                  targetRevisionId: { type: 'string' },
                 },
               },
-              required: ['title'],
             },
+            required: ['presentationId', 'requests'],
           },
-          {
-            name: 'get_presentation',
-            description: 'Get details about a Google Slides presentation',
-            inputSchema: {
-              type: 'object',
-              properties: {
-                presentationId: {
-                  type: 'string',
-                  description: 'The ID of the presentation to retrieve.',
-                },
-                fields: {
-                  type: 'string',
-                  description: 'Optional. A mask specifying which fields to include in the response (e.g., "slides,pageSize").',
-                }
+        },
+        {
+          name: 'get_page',
+          description: 'Get details about a specific page (slide) in a presentation',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              presentationId: {
+                type: 'string',
+                description: 'The ID of the presentation.',
               },
-              required: ['presentationId'],
-            },
-          },
-          {
-            name: 'batch_update_presentation',
-            description: 'Apply a batch of updates to a Google Slides presentation',
-            inputSchema: {
-              type: 'object',
-              properties: {
-                presentationId: {
-                  type: 'string',
-                  description: 'The ID of the presentation to update.',
-                },
-                requests: {
-                  type: 'array',
-                  description: 'A list of update requests to apply. See Google Slides API documentation for request structures.',
-                  items: { type: 'object' }
-                },
-                writeControl: {
-                   type: 'object',
-                   description: 'Optional. Provides control over how write requests are executed.',
-                   properties: {
-                     requiredRevisionId: { type: 'string' },
-                     targetRevisionId: { type: 'string' }
-                   }
-                }
+              pageObjectId: {
+                type: 'string',
+                description: 'The object ID of the page (slide) to retrieve.',
               },
-              required: ['presentationId', 'requests'],
             },
+            required: ['presentationId', 'pageObjectId'],
           },
-          {
-            name: 'get_page',
-            description: 'Get details about a specific page (slide) in a presentation',
-            inputSchema: {
-              type: 'object',
-              properties: {
-                presentationId: {
-                  type: 'string',
-                  description: 'The ID of the presentation.',
-                },
-                pageObjectId: {
-                  type: 'string',
-                  description: 'The object ID of the page (slide) to retrieve.',
-                },
+        },
+        {
+          name: 'summarize_presentation',
+          description: 'Extract text content from all slides in a presentation for summarization purposes',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              presentationId: {
+                type: 'string',
+                description: 'The ID of the presentation to summarize.',
               },
-              required: ['presentationId', 'pageObjectId'],
-            },
-          },
-          {
-            name: 'summarize_presentation',
-            description: 'Extract text content from all slides in a presentation for summarization purposes',
-            inputSchema: {
-              type: 'object',
-              properties: {
-                presentationId: {
-                  type: 'string',
-                  description: 'The ID of the presentation to summarize.',
-                },
-                include_notes: {
-                  type: 'boolean',
-                  description: 'Optional. Whether to include speaker notes in the summary (default: false).',
-                }
+              include_notes: {
+                type: 'boolean',
+                description: 'Optional. Whether to include speaker notes in the summary (default: false).',
               },
-              required: ['presentationId'],
             },
+            required: ['presentationId'],
           },
-        ],
-      };
-    });
+        },
+      ],
+    }));
 
     this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const { name, arguments: args } = request.params;
 
       switch (name) {
         case 'create_presentation':
-          return executeTool(
-            this.slides,
-            name,
-            args,
-            CreatePresentationArgsSchema,
-            createPresentationTool
-          );
+          return executeTool(this.slides, name, args, CreatePresentationArgsSchema, createPresentationTool);
         case 'get_presentation':
-          return executeTool(
-            this.slides,
-            name,
-            args,
-            GetPresentationArgsSchema,
-            getPresentationTool
-          );
+          return executeTool(this.slides, name, args, GetPresentationArgsSchema, getPresentationTool);
         case 'batch_update_presentation':
-          return executeTool(
-            this.slides,
-            name,
-            args,
-            BatchUpdatePresentationArgsSchema,
-            batchUpdatePresentationTool
-          );
+          return executeTool(this.slides, name, args, BatchUpdatePresentationArgsSchema, batchUpdatePresentationTool);
         case 'get_page':
-          return executeTool(
-            this.slides,
-            name,
-            args,
-            GetPageArgsSchema,
-            getPageTool
-          );
+          return executeTool(this.slides, name, args, GetPageArgsSchema, getPageTool);
         case 'summarize_presentation':
-          return executeTool(
-            this.slides,
-            name,
-            args,
-            SummarizePresentationArgsSchema,
-            summarizePresentationTool
-          );
+          return executeTool(this.slides, name, args, SummarizePresentationArgsSchema, summarizePresentationTool);
         default:
           return {
             content: [{ type: 'text', text: `Unknown tool requested: ${name}` }],

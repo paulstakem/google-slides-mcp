@@ -9,10 +9,7 @@ import { handleGoogleApiError } from '../utils/errorHandler.js';
  * @returns A promise resolving to the MCP response content.
  * @throws McpError if the Google API call fails.
  */
-export async function getPageTool(
-  slides: slides_v1.Slides,
-  args: GetPageArgs
-) {
+export const getPageTool = async (slides: slides_v1.Slides, args: GetPageArgs) => {
   try {
     const response = await slides.presentations.pages.get({
       presentationId: args.presentationId,
@@ -24,4 +21,4 @@ export async function getPageTool(
   } catch (error: unknown) {
     throw handleGoogleApiError(error, 'get_page');
   }
-}
+};

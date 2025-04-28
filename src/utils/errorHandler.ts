@@ -10,21 +10,21 @@ import { ErrorCode, McpError } from '@modelcontextprotocol/sdk/types.js';
 const extractRawErrorMessage = (err: unknown): string => {
   if (typeof err === 'object' && err !== null && 'response' in err) {
     const gError = err as { response?: { data?: { error?: { message?: string } } } };
-      return gError.response?.data?.error?.message || (err instanceof Error ? err.message : String(err));
-    }
-    if (err instanceof Error) {
-      return err.message;
-    }
-    if (typeof err === 'string') {
-      return err;
-    }
-    return 'Unknown Google API error';
+    return gError.response?.data?.error?.message || (err instanceof Error ? err.message : String(err));
+  }
+  if (err instanceof Error) {
+    return err.message;
+  }
+  if (typeof err === 'string') {
+    return err;
+  }
+  return 'Unknown Google API error';
 };
 
-export function handleGoogleApiError(error: unknown, toolName: string): McpError {
+export const handleGoogleApiError = (error: unknown, toolName: string): McpError => {
   const rawErrorMessage = extractRawErrorMessage(error);
   const finalErrorMessage = `Google API Error in ${toolName}: ${rawErrorMessage}`;
 
   console.error(`Google API Error (${toolName}):`, error);
   return new McpError(ErrorCode.InternalError, finalErrorMessage);
-}
+};
