@@ -4,46 +4,23 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import {
   CallToolRequestSchema,
   ErrorCode,
-  ListToolsRequestSchema,
-  McpError
+  ListToolsRequestSchema
 } from '@modelcontextprotocol/sdk/types.js';
 import { google, slides_v1 } from 'googleapis';
 import { OAuth2Client } from 'google-auth-library';
-import { z } from 'zod';
-
-const CreatePresentationArgsSchema = z.object({
-  title: z.string().min(1, { message: '"title" (string) is required.' }),
-});
-type CreatePresentationArgs = z.infer<typeof CreatePresentationArgsSchema>;
-
-const GetPresentationArgsSchema = z.object({
-  presentationId: z.string().min(1, { message: '"presentationId" (string) is required.' }),
-  fields: z.string().optional(),
-});
-type GetPresentationArgs = z.infer<typeof GetPresentationArgsSchema>;
-
-const GoogleSlidesRequestSchema = z.any();
-const GoogleSlidesWriteControlSchema = z.any();
-
-const BatchUpdatePresentationArgsSchema = z.object({
-  presentationId: z.string().min(1, { message: '"presentationId" (string) is required.' }),
-  requests: z.array(GoogleSlidesRequestSchema).min(1, { message: '"requests" (array) is required.' }),
-  writeControl: GoogleSlidesWriteControlSchema.optional(),
-});
-type BatchUpdatePresentationArgs = z.infer<typeof BatchUpdatePresentationArgsSchema>;
-
-const GetPageArgsSchema = z.object({
-  presentationId: z.string().min(1, { message: '"presentationId" (string) is required.' }),
-  pageObjectId: z.string().min(1, { message: '"pageObjectId" (string) is required.' }),
-});
-type GetPageArgs = z.infer<typeof GetPageArgsSchema>;
-
-const SummarizePresentationArgsSchema = z.object({
-  presentationId: z.string().min(1, { message: '"presentationId" (string) is required.' }),
-  include_notes: z.boolean().optional(),
-});
-type SummarizePresentationArgs = z.infer<typeof SummarizePresentationArgsSchema>;
-
+import {
+  CreatePresentationArgsSchema,
+  GetPresentationArgsSchema,
+  BatchUpdatePresentationArgsSchema,
+  GetPageArgsSchema,
+  SummarizePresentationArgsSchema
+} from './schemas.js';
+import { createPresentationTool } from './tools/createPresentation.js';
+import { getPresentationTool } from './tools/getPresentation.js';
+import { batchUpdatePresentationTool } from './tools/batchUpdatePresentation.js';
+import { getPageTool } from './tools/getPage.js';
+import { summarizePresentationTool } from './tools/summarizePresentation.js';
+import { executeTool } from './utils/toolExecutor.js';
 
 const CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
@@ -208,252 +185,55 @@ class GoogleSlidesServer {
     this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const { name, arguments: args } = request.params;
 
-      try {
-        if (args === undefined) {
-          throw new McpError(ErrorCode.InvalidParams, `Missing arguments for tool "${name}".`);
-        }
-
-        switch (name) {
-          case 'create_presentation': {
-            const parsedArgs = CreatePresentationArgsSchema.parse(args);
-            return await this.createPresentation(parsedArgs);
-          }
-          case 'get_presentation': {
-            const parsedArgs = GetPresentationArgsSchema.parse(args);
-            return await this.getPresentation(parsedArgs);
-          }
-          case 'batch_update_presentation': {
-            const parsedArgs = BatchUpdatePresentationArgsSchema.parse(args);
-            return await this.batchUpdatePresentation(parsedArgs);
-          }
-          case 'get_page': {
-            const parsedArgs = GetPageArgsSchema.parse(args);
-             return await this.getPage(parsedArgs);
-          }
-          case 'summarize_presentation': {
-            const parsedArgs = SummarizePresentationArgsSchema.parse(args);
-             return await this.summarizePresentation(parsedArgs);
-          }
-          default:
-            throw new McpError(
-              ErrorCode.MethodNotFound,
-              `Unknown tool requested: ${name}`
-            );
-        }
-      } catch (error: unknown) {
-        console.error(`Error executing tool "${name}":`, error);
-
-        let mcpError: McpError;
-        if (error instanceof z.ZodError) {
-          const validationErrors = error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join('; ');
-          mcpError = new McpError(ErrorCode.InvalidParams, `Invalid arguments for tool "${name}": ${validationErrors}`);
-        } else if (error instanceof McpError) {
-          mcpError = error;
-        } else {
-          let errorMessage = 'Unknown error';
-          if (error instanceof Error) {
-            errorMessage = error.message;
-          } else if (typeof error === 'string') {
-            errorMessage = error;
-          }
-          mcpError = new McpError(ErrorCode.InternalError, `Failed to execute tool "${name}": ${errorMessage}`);
-        }
-
-        return {
-          content: [{ type: 'text', text: mcpError.message }],
-          isError: true,
-          errorCode: mcpError.code,
-        };
+      switch (name) {
+        case 'create_presentation':
+          return executeTool(
+            this.slides,
+            name,
+            args,
+            CreatePresentationArgsSchema,
+            createPresentationTool
+          );
+        case 'get_presentation':
+          return executeTool(
+            this.slides,
+            name,
+            args,
+            GetPresentationArgsSchema,
+            getPresentationTool
+          );
+        case 'batch_update_presentation':
+          return executeTool(
+            this.slides,
+            name,
+            args,
+            BatchUpdatePresentationArgsSchema,
+            batchUpdatePresentationTool
+          );
+        case 'get_page':
+          return executeTool(
+            this.slides,
+            name,
+            args,
+            GetPageArgsSchema,
+            getPageTool
+          );
+        case 'summarize_presentation':
+          return executeTool(
+            this.slides,
+            name,
+            args,
+            SummarizePresentationArgsSchema,
+            summarizePresentationTool
+          );
+        default:
+          return {
+            content: [{ type: 'text', text: `Unknown tool requested: ${name}` }],
+            isError: true,
+            errorCode: ErrorCode.MethodNotFound,
+          };
       }
     });
-  }
-
-  private async createPresentation(args: CreatePresentationArgs) {
-    try {
-      const response = await this.slides.presentations.create({
-        requestBody: {
-          title: args.title,
-        },
-      });
-      return {
-        content: [{ type: 'text', text: JSON.stringify(response.data, null, 2) }],
-      };
-    } catch (error: unknown) {
-      let errorMessage = 'Unknown Google API error';
-      if (typeof error === 'object' && error !== null && 'response' in error) {
-        const gError = error as { response?: { data?: { error?: { message?: string } } } };
-        errorMessage = gError.response?.data?.error?.message || (error instanceof Error ? error.message : String(error));
-      } else if (error instanceof Error) {
-        errorMessage = error.message;
-      }
-      console.error('Google API Error (createPresentation):', error);
-      throw new McpError(ErrorCode.InternalError, `Google API Error: ${errorMessage}`);
-    }
-  }
-
-  private async getPresentation(args: GetPresentationArgs) {
-    try {
-      const response = await this.slides.presentations.get({
-        presentationId: args.presentationId,
-        fields: args.fields,
-      });
-      return {
-        content: [{ type: 'text', text: JSON.stringify(response.data, null, 2) }],
-      };
-    } catch (error: unknown) {
-      let errorMessage = 'Unknown Google API error';
-      if (typeof error === 'object' && error !== null && 'response' in error) {
-        const gError = error as { response?: { data?: { error?: { message?: string } } } };
-        errorMessage = gError.response?.data?.error?.message || (error instanceof Error ? error.message : String(error));
-      } else if (error instanceof Error) {
-        errorMessage = error.message;
-      }
-      console.error('Google API Error (getPresentation):', error);
-      throw new McpError(ErrorCode.InternalError, `Google API Error: ${errorMessage}`);
-    }
-  }
-
-  private async batchUpdatePresentation(args: BatchUpdatePresentationArgs) {
-    try {
-      const response = await this.slides.presentations.batchUpdate({
-        presentationId: args.presentationId,
-        requestBody: {
-          requests: args.requests,
-          writeControl: args.writeControl,
-        },
-      });
-      return {
-        content: [{ type: 'text', text: JSON.stringify(response.data, null, 2) }],
-      };
-    } catch (error: unknown) {
-       let errorMessage = 'Unknown Google API error';
-      if (typeof error === 'object' && error !== null && 'response' in error) {
-        const gError = error as { response?: { data?: { error?: { message?: string } } } };
-        errorMessage = gError.response?.data?.error?.message || (error instanceof Error ? error.message : String(error));
-      } else if (error instanceof Error) {
-        errorMessage = error.message;
-      }
-      console.error('Google API Error (batchUpdatePresentation):', error);
-      throw new McpError(ErrorCode.InternalError, `Google API Error: ${errorMessage}`);
-    }
-  }
-
-  private async getPage(args: GetPageArgs) {
-    try {
-      const response = await this.slides.presentations.pages.get({
-        presentationId: args.presentationId,
-        pageObjectId: args.pageObjectId,
-      });
-      return {
-        content: [{ type: 'text', text: JSON.stringify(response.data, null, 2) }],
-      };
-    } catch (error: unknown) {
-      let errorMessage = 'Unknown Google API error';
-      if (typeof error === 'object' && error !== null && 'response' in error) {
-        const gError = error as { response?: { data?: { error?: { message?: string } } } };
-        errorMessage = gError.response?.data?.error?.message || (error instanceof Error ? error.message : String(error));
-      } else if (error instanceof Error) {
-        errorMessage = error.message;
-      }
-      console.error('Google API Error (getPage):', error);
-      throw new McpError(ErrorCode.InternalError, `Google API Error: ${errorMessage}`);
-    }
-  }
-
-  private async summarizePresentation(args: SummarizePresentationArgs) {
-    const includeNotes = args.include_notes === true;
-
-    try {
-      const presentationResponse = await this.slides.presentations.get({
-        presentationId: args.presentationId,
-      });
-
-      const presentation = presentationResponse.data;
-      if (!presentation.slides || presentation.slides.length === 0) {
-        return {
-          content: [{ type: 'text', text: JSON.stringify({
-            title: presentation.title || 'Untitled Presentation',
-            slideCount: 0,
-            summary: 'This presentation contains no slides.'
-          }, null, 2) }],
-        };
-      }
-
-      const slidesContent = presentation.slides.map((slide, index) => {
-        const slideNumber = index + 1;
-        let slideText: string[] = [];
-        let notes = '';
-
-        if (slide.pageElements) {
-          slide.pageElements.forEach(element => {
-            if (element.shape && element.shape.text && element.shape.text.textElements) {
-              element.shape.text.textElements.forEach(textElement => {
-                if (textElement.textRun && textElement.textRun.content) {
-                  slideText.push(textElement.textRun.content.trim());
-                }
-              });
-            }
-
-            if (element.table && element.table.tableRows) {
-              element.table.tableRows.forEach(row => {
-                if (row.tableCells) {
-                  row.tableCells.forEach(cell => {
-                    if (cell.text && cell.text.textElements) {
-                      cell.text.textElements.forEach(textElement => {
-                        if (textElement.textRun && textElement.textRun.content) {
-                          slideText.push(textElement.textRun.content.trim());
-                        }
-                      });
-                    }
-                  });
-                }
-              });
-            }
-          });
-        }
-
-        if (includeNotes && slide.slideProperties && slide.slideProperties.notesPage &&
-            slide.slideProperties.notesPage.pageElements) {
-          slide.slideProperties.notesPage.pageElements.forEach(element => {
-            if (element.shape && element.shape.text && element.shape.text.textElements) {
-              element.shape.text.textElements.forEach(textElement => {
-                if (textElement.textRun && textElement.textRun.content) {
-                  notes += textElement.textRun.content.trim() + ' ';
-                }
-              });
-            }
-          });
-        }
-
-        return {
-          slideNumber,
-          slideId: slide.objectId || `slide_${slideNumber}`,
-          content: slideText.filter(text => text.length > 0).join(' '),
-          ...(includeNotes && notes ? { notes: notes.trim() } : {})
-        };
-      });
-
-      const summary = {
-        title: presentation.title || 'Untitled Presentation',
-        slideCount: slidesContent.length,
-        lastModified: presentation.revisionId ? `Revision ${presentation.revisionId}` : 'Unknown',
-        slides: slidesContent
-      };
-
-      return {
-        content: [{ type: 'text', text: JSON.stringify(summary, null, 2) }],
-      };
-    } catch (error: unknown) {
-      let errorMessage = 'Unknown Google API error';
-      if (typeof error === 'object' && error !== null && 'response' in error) {
-        const gError = error as { response?: { data?: { error?: { message?: string } } } };
-        errorMessage = gError.response?.data?.error?.message || (error instanceof Error ? error.message : String(error));
-      } else if (error instanceof Error) {
-        errorMessage = error.message;
-      }
-      console.error('Google API Error (summarizePresentation):', error);
-      throw new McpError(ErrorCode.InternalError, `Google API Error: ${errorMessage}`);
-    }
   }
 
   async run() {
@@ -463,14 +243,19 @@ class GoogleSlidesServer {
   }
 }
 
+const getStartupErrorMessage = (err: unknown): string => {
+  if (err instanceof Error) {
+    return err.message;
+  }
+  if (typeof err === 'string') {
+    return err;
+  }
+  return 'Unknown error';
+};
+
 const server = new GoogleSlidesServer();
 server.run().catch((error: unknown) => {
-  let errorMessage = 'Unknown error';
-  if (error instanceof Error) {
-    errorMessage = error.message;
-  } else if (typeof error === 'string') {
-    errorMessage = error;
-  }
+  const errorMessage = getStartupErrorMessage(error);
   console.error('Failed to start Google Slides MCP server:', errorMessage, error);
   process.exit(1);
 });
