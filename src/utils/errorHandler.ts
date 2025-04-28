@@ -28,3 +28,13 @@ export const handleGoogleApiError = (error: unknown, toolName: string): McpError
   console.error(`Google API Error (${toolName}):`, error);
   return new McpError(ErrorCode.InternalError, finalErrorMessage);
 };
+
+export const getStartupErrorMessage = (err: unknown): string => {
+  if (err instanceof Error) {
+    return err.message;
+  }
+  if (typeof err === 'string') {
+    return err;
+  }
+  return 'Unknown error';
+};
