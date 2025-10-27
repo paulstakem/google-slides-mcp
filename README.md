@@ -139,3 +139,75 @@ The server exposes the following tools via the Model Context Protocol:
       * `notes`: Speaker notes (if requested and available)
 
 *(More tools can be added by extending `src/index.ts`)*
+
+## Development
+
+### Testing
+
+This project uses [Vitest](https://vitest.dev/) as its testing framework. Vitest is a fast, modern test runner that's compatible with Jest APIs but optimized for Vite and ESM projects.
+
+#### Running Tests
+
+```bash
+# Run all tests once
+npm test
+
+# Run tests in watch mode (re-runs on file changes)
+npm run test:watch
+
+# Run tests with coverage report
+npm run test:coverage
+
+# Run tests with UI interface
+npm run test:ui
+```
+
+#### Test Structure
+
+Tests are located in `__tests__` directories alongside the code they test. For example:
+- `src/tools/__tests__/createPresentation.test.ts` - Tests for the create presentation tool
+
+#### Writing Tests
+
+Tests use Vitest's API which is compatible with Jest:
+
+```typescript
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+
+describe('Feature: My Feature', () => {
+  beforeEach(() => {
+    // Setup code
+  });
+
+  it('should do something', () => {
+    // Test code
+    expect(result).toBe(expected);
+  });
+});
+```
+
+For mocking, use Vitest's `vi` object:
+
+```typescript
+const mockFunction = vi.fn();
+vi.spyOn(console, 'error').mockImplementation(() => {});
+```
+
+#### Coverage Reports
+
+Coverage reports are generated in the `coverage` directory when running `npm run test:coverage`. The report includes:
+- Text summary in the terminal
+- HTML report in `coverage/index.html`
+- JSON report in `coverage/coverage-final.json`
+
+### Linting
+
+```bash
+npm run lint
+```
+
+### Building
+
+```bash
+npm run build
+```

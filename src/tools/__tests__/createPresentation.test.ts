@@ -1,4 +1,4 @@
-import { jest, describe, it, expect, beforeEach } from '@jest/globals';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { slides_v1 } from 'googleapis';
 import { executeTool } from '../../utils/toolExecutor.js';
 import { createPresentationTool } from '../createPresentation.js';
@@ -6,7 +6,7 @@ import { CreatePresentationArgsSchema } from '../../schemas.js';
 import { ErrorCode } from '@modelcontextprotocol/sdk/types.js';
 
 // Mock the Google Slides API client
-const mockPresentationsCreate = jest.fn();
+const mockPresentationsCreate = vi.fn();
 const mockSlidesClient = {
   presentations: {
     create: mockPresentationsCreate,
@@ -46,18 +46,16 @@ describe('Feature: Create Presentation Tool', () => {
         },
       });
       expect(result.isError).toBeUndefined();
-      expect(result.content).toEqual([
-        { type: 'text', text: JSON.stringify(expectedPresentation, null, 2) },
-      ]);
+      expect(result.content).toEqual([{ type: 'text', text: JSON.stringify(expectedPresentation, null, 2) }]);
     });
   });
 
   describe('Scenario: Invalid arguments', () => {
-    let consoleErrorSpy: jest.SpyInstance;
+    let consoleErrorSpy: any;
 
     beforeEach(() => {
       // Suppress console.error for these tests as errors are expected
-      consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     });
 
     afterEach(() => {
@@ -107,11 +105,11 @@ describe('Feature: Create Presentation Tool', () => {
   });
 
   describe('Scenario: Google API fails', () => {
-    let consoleErrorSpy: jest.SpyInstance;
+    let consoleErrorSpy: any;
 
     beforeEach(() => {
       // Suppress console.error for these tests as errors are expected
-      consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     });
 
     afterEach(() => {
