@@ -1,5 +1,7 @@
 # Google Slides MCP Server
 
+[![CI](https://github.com/paulstakem/google-slides-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/paulstakem/google-slides-mcp/actions/workflows/ci.yml)
+
 This project provides a Model Context Protocol (MCP) server for interacting with the Google Slides API. It allows you to create, read, and modify Google Slides presentations programmatically.
 
 ## Prerequisites
@@ -211,3 +213,58 @@ npm run lint
 ```bash
 npm run build
 ```
+
+## Continuous Integration
+
+This project uses GitHub Actions for automated testing and quality checks. The CI workflow runs on every push to `main` or `develop` branches and on all pull requests.
+
+### CI Workflow
+
+The CI pipeline includes:
+
+1. **Multi-Version Testing**: Tests run on Node.js versions 18.x, 20.x, and 22.x to ensure compatibility
+2. **Code Linting**: Validates code style and quality with ESLint
+3. **Build Verification**: Ensures the TypeScript code compiles without errors
+4. **Test Execution**: Runs the full test suite with Vitest using the GitHub Actions reporter
+5. **Coverage Reporting**: Generates and uploads code coverage reports (on Node.js 20.x)
+
+### GitHub Actions Reporter
+
+Tests are run with Vitest's [GitHub Actions reporter](https://vitest.dev/guide/reporters.html#github-actions-reporter), which provides:
+
+- Inline annotations for test failures directly in pull request diffs
+- Collapsible test output in the Actions logs
+- Better integration with GitHub's UI
+
+The reporter is configured in the CI workflow like this:
+
+```bash
+npm run test -- --reporter=github-actions --reporter=default
+```
+
+This runs both the GitHub Actions reporter (for CI integration) and the default reporter (for readable console output).
+
+### Viewing CI Results
+
+- **Pull Requests**: CI status appears as checks at the bottom of PRs
+- **Actions Tab**: Detailed logs and test results are available in the repository's Actions tab
+- **Coverage Reports**: Generated coverage artifacts can be downloaded from successful CI runs (retained for 30 days)
+
+### Local CI Simulation
+
+To simulate the CI environment locally:
+
+```bash
+# Install dependencies (like CI does)
+npm ci
+
+# Run the full CI check sequence
+npm run lint && npm run build && npm test
+
+# Generate coverage like CI does
+npm run test:coverage
+```
+
+### Coverage Upload
+
+The workflow uploads coverage to Codecov (if configured) and stores HTML coverage reports as GitHub Actions artifacts, which can be downloaded and viewed locally.
