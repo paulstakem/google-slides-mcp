@@ -1,9 +1,9 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi, type MockInstance } from 'vitest';
 import { ErrorCode } from '@modelcontextprotocol/sdk/types.js';
 import { handleGoogleApiError, getStartupErrorMessage } from '../errorHandler.js';
 
 describe('Feature: Error Handler', () => {
-  let consoleErrorSpy: any;
+  let consoleErrorSpy: MockInstance;
 
   beforeEach(() => {
     // Suppress console.error for these tests as errors are expected

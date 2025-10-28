@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi, type MockInstance } from 'vitest';
 import { slides_v1 } from 'googleapis';
 import { executeTool } from '../../utils/toolExecutor.js';
 import { summarizePresentationTool } from '../summarizePresentation.js';
@@ -35,10 +35,7 @@ describe('Feature: Summarize Presentation Tool', () => {
                 objectId: 'element-1',
                 shape: {
                   text: {
-                    textElements: [
-                      { textRun: { content: 'Title Slide' } },
-                      { textRun: { content: 'Subtitle Here' } },
-                    ],
+                    textElements: [{ textRun: { content: 'Title Slide' } }, { textRun: { content: 'Subtitle Here' } }],
                   },
                 },
               },
@@ -473,7 +470,7 @@ describe('Feature: Summarize Presentation Tool', () => {
   });
 
   describe('Scenario: Invalid arguments', () => {
-    let consoleErrorSpy: any;
+    let consoleErrorSpy: MockInstance;
 
     beforeEach(() => {
       // Suppress console.error for these tests as errors are expected
@@ -547,7 +544,7 @@ describe('Feature: Summarize Presentation Tool', () => {
   });
 
   describe('Scenario: Google API fails', () => {
-    let consoleErrorSpy: any;
+    let consoleErrorSpy: MockInstance;
 
     beforeEach(() => {
       // Suppress console.error for these tests as errors are expected

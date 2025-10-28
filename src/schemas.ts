@@ -11,8 +11,13 @@ export const GetPresentationArgsSchema = z.object({
 });
 export type GetPresentationArgs = z.infer<typeof GetPresentationArgsSchema>;
 
-// Using z.any() for complex Google Slides API structures for simplicity in this context.
-// For stricter typing, these could be defined more precisely based on the Google Slides API.
+// Using z.any() for complex Google Slides API structures that are passed through to the Google API.
+// This is an acceptable use of 'any' per TypeScript ESLint guidelines because:
+// 1. These schemas validate external API request structures from the Google Slides API
+// 2. The actual type validation happens at the Google API boundary, not in our code
+// 3. Defining full types for all Google Slides request types would be impractical and unmaintainable
+// 4. The values are immediately passed to the googleapis library which has its own type checking
+// For stricter typing, these could be defined more precisely based on the Google Slides API specification.
 const GoogleSlidesRequestSchema = z.any();
 const GoogleSlidesWriteControlSchema = z.any();
 

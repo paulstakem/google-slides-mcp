@@ -27,9 +27,10 @@ export const executeTool = async <T>(
   toolName: string,
   args: unknown,
   schema: z.ZodSchema<T>,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Required for compatibility with MCP SDK return types
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Tool functions return various MCP result shapes that cannot be strictly typed
   toolFn: (slides: slides_v1.Slides, parsedArgs: T) => Promise<any>
-) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Return type matches MCP SDK CallToolResult which has complex union types
+): Promise<any> => {
   try {
     if (args === undefined) {
       throw new McpError(ErrorCode.InvalidParams, `Missing arguments for tool "${toolName}".`);

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi, type MockInstance } from 'vitest';
 import { slides_v1 } from 'googleapis';
 import { z } from 'zod';
 import { ErrorCode, McpError } from '@modelcontextprotocol/sdk/types.js';
@@ -9,13 +9,11 @@ const TestArgsSchema = z.object({
   testParam: z.string(),
 });
 
-type TestArgs = z.infer<typeof TestArgsSchema>;
-
 // Mock Google Slides client
 const mockSlidesClient = {} as slides_v1.Slides;
 
 describe('Feature: Tool Executor', () => {
-  let consoleErrorSpy: any;
+  let consoleErrorSpy: MockInstance;
 
   beforeEach(() => {
     // Suppress console.error for these tests as errors are expected

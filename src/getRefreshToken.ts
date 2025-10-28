@@ -16,44 +16,38 @@ if (!CLIENT_ID || !CLIENT_SECRET) {
 }
 
 // Initialize OAuth2 client
-const oauth2Client = new google.auth.OAuth2(
-  CLIENT_ID,
-  CLIENT_SECRET,
-  REDIRECT_URI
-);
+const oauth2Client = new google.auth.OAuth2(CLIENT_ID, CLIENT_SECRET, REDIRECT_URI);
 
 // Set authentication scopes
-const scopes = [
-  'https://www.googleapis.com/auth/presentations',
-  'https://www.googleapis.com/auth/drive.readonly'
-];
+const scopes = ['https://www.googleapis.com/auth/presentations', 'https://www.googleapis.com/auth/drive.readonly'];
 
-async function main() {
+const main = async () => {
   // Generate authentication URL
   const authorizeUrl = oauth2Client.generateAuthUrl({
     access_type: 'offline',
     scope: scopes,
-    prompt: 'consent' // Required to force refresh token acquisition
+    prompt: 'consent', // Required to force refresh token acquisition
   });
 
   // Start local server
-  const server = http.createServer(async (req, res) => {
-    try {
-      if (!req.url) {
-        throw new Error('No URL in request');
-      }
+  const server = http
+    .createServer(async (req, res) => {
+      try {
+        if (!req.url) {
+          throw new Error('No URL in request');
+        }
 
-      // Get code from callback URL
-      const queryParams = url.parse(req.url, true).query;
-      const code = queryParams.code;
+        // Get code from callback URL
+        const queryParams = url.parse(req.url, true).query;
+        const code = queryParams.code;
 
-      if (code) {
-        // Exchange code for tokens
-        const { tokens } = await oauth2Client.getToken(code as string);
+        if (code) {
+          // Exchange code for tokens
+          const { tokens } = await oauth2Client.getToken(code as string);
 
-        // Return response
-        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        res.end(`
+          // Return response
+          res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+          res.end(`
           <!DOCTYPE html>
           <html>
           <head>
@@ -67,17 +61,17 @@ async function main() {
           </html>
         `);
 
-        // Display refresh token
-        console.log('\n=== Refresh Token ===');
-        console.log(tokens.refresh_token);
-        console.log('========================\n');
-        console.log('Please set this refresh token to the GOOGLE_REFRESH_TOKEN environment variable.');
+          // Display refresh token
+          console.log('\n=== Refresh Token ===');
+          console.log(tokens.refresh_token);
+          console.log('========================\n');
+          console.log('Please set this refresh token to the GOOGLE_REFRESH_TOKEN environment variable.');
 
-        // Stop the server
-        server.destroy();
-      } else {
-        res.writeHead(400, { 'Content-Type': 'text/html; charset=utf-8' });
-        res.end(`
+          // Stop the server
+          server.destroy();
+        } else {
+          res.writeHead(400, { 'Content-Type': 'text/html; charset=utf-8' });
+          res.end(`
           <!DOCTYPE html>
           <html>
           <head>
@@ -89,10 +83,10 @@ async function main() {
           </body>
           </html>
         `);
-      }
-    } catch (e) {
-      res.writeHead(500, { 'Content-Type': 'text/html; charset=utf-8' });
-      res.end(`
+        }
+      } catch (e) {
+        res.writeHead(500, { 'Content-Type': 'text/html; charset=utf-8' });
+        res.end(`
         <!DOCTYPE html>
         <html>
         <head>
@@ -105,15 +99,16 @@ async function main() {
         </body>
         </html>
       `);
-      console.error('Error:', e);
-    }
-  }).listen(3000, () => {
-    // Open authentication URL in browser
-    console.log('Opening authentication URL...');
-    open(authorizeUrl, { wait: false });
-  });
+        console.error('Error:', e);
+      }
+    })
+    .listen(3000, () => {
+      // Open authentication URL in browser
+      console.log('Opening authentication URL...');
+      open(authorizeUrl, { wait: false });
+    });
 
   destroyer(server);
-}
+};
 
 main().catch(console.error);

@@ -1,9 +1,9 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { ErrorCode } from '@modelcontextprotocol/sdk/types.js';
 import { slides_v1 } from 'googleapis';
+import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest';
+import { BatchUpdatePresentationArgsSchema } from '../../schemas.js';
 import { executeTool } from '../../utils/toolExecutor.js';
 import { batchUpdatePresentationTool } from '../batchUpdatePresentation.js';
-import { BatchUpdatePresentationArgsSchema } from '../../schemas.js';
-import { ErrorCode } from '@modelcontextprotocol/sdk/types.js';
 
 // Mock the Google Slides API client
 const mockPresentationsBatchUpdate = vi.fn();
@@ -86,10 +86,7 @@ describe('Feature: Batch Update Presentation Tool', () => {
       };
       const expectedResponse = {
         presentationId: 'presentation-456',
-        replies: [
-          { createSlide: { objectId: 'slide-1' } },
-          { insertText: {} },
-        ],
+        replies: [{ createSlide: { objectId: 'slide-1' } }, { insertText: {} }],
       };
       mockPresentationsBatchUpdate.mockResolvedValue({ data: expectedResponse });
 
@@ -162,7 +159,7 @@ describe('Feature: Batch Update Presentation Tool', () => {
   });
 
   describe('Scenario: Invalid arguments', () => {
-    let consoleErrorSpy: any;
+    let consoleErrorSpy: MockInstance;
 
     beforeEach(() => {
       // Suppress console.error for these tests as errors are expected
@@ -240,7 +237,7 @@ describe('Feature: Batch Update Presentation Tool', () => {
   });
 
   describe('Scenario: Google API fails', () => {
-    let consoleErrorSpy: any;
+    let consoleErrorSpy: MockInstance;
 
     beforeEach(() => {
       // Suppress console.error for these tests as errors are expected

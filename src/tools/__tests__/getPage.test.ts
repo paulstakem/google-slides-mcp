@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi, type MockInstance } from 'vitest';
 import { slides_v1 } from 'googleapis';
 import { executeTool } from '../../utils/toolExecutor.js';
 import { getPageTool } from '../getPage.js';
@@ -52,13 +52,7 @@ describe('Feature: Get Page Tool', () => {
       mockPresentationsPagesGet.mockResolvedValue({ data: expectedPage });
 
       // When
-      const result = await executeTool(
-        mockSlidesClient,
-        'get_page',
-        args,
-        GetPageArgsSchema,
-        getPageTool
-      );
+      const result = await executeTool(mockSlidesClient, 'get_page', args, GetPageArgsSchema, getPageTool);
 
       // Then
       expect(mockPresentationsPagesGet).toHaveBeenCalledTimes(1);
@@ -99,13 +93,7 @@ describe('Feature: Get Page Tool', () => {
       mockPresentationsPagesGet.mockResolvedValue({ data: expectedPage });
 
       // When
-      const result = await executeTool(
-        mockSlidesClient,
-        'get_page',
-        args,
-        GetPageArgsSchema,
-        getPageTool
-      );
+      const result = await executeTool(mockSlidesClient, 'get_page', args, GetPageArgsSchema, getPageTool);
 
       // Then
       expect(mockPresentationsPagesGet).toHaveBeenCalledTimes(1);
@@ -133,13 +121,7 @@ describe('Feature: Get Page Tool', () => {
       mockPresentationsPagesGet.mockResolvedValue({ data: expectedPage });
 
       // When
-      const result = await executeTool(
-        mockSlidesClient,
-        'get_page',
-        args,
-        GetPageArgsSchema,
-        getPageTool
-      );
+      const result = await executeTool(mockSlidesClient, 'get_page', args, GetPageArgsSchema, getPageTool);
 
       // Then
       expect(mockPresentationsPagesGet).toHaveBeenCalledTimes(1);
@@ -149,7 +131,7 @@ describe('Feature: Get Page Tool', () => {
   });
 
   describe('Scenario: Invalid arguments', () => {
-    let consoleErrorSpy: any;
+    let consoleErrorSpy: MockInstance;
 
     beforeEach(() => {
       // Suppress console.error for these tests as errors are expected
@@ -168,13 +150,7 @@ describe('Feature: Get Page Tool', () => {
       };
 
       // When
-      const result = await executeTool(
-        mockSlidesClient,
-        'get_page',
-        args,
-        GetPageArgsSchema,
-        getPageTool
-      );
+      const result = await executeTool(mockSlidesClient, 'get_page', args, GetPageArgsSchema, getPageTool);
 
       // Then
       expect(mockPresentationsPagesGet).not.toHaveBeenCalled();
@@ -190,13 +166,7 @@ describe('Feature: Get Page Tool', () => {
       };
 
       // When
-      const result = await executeTool(
-        mockSlidesClient,
-        'get_page',
-        args,
-        GetPageArgsSchema,
-        getPageTool
-      );
+      const result = await executeTool(mockSlidesClient, 'get_page', args, GetPageArgsSchema, getPageTool);
 
       // Then
       expect(mockPresentationsPagesGet).not.toHaveBeenCalled();
@@ -210,13 +180,7 @@ describe('Feature: Get Page Tool', () => {
       const args = {};
 
       // When
-      const result = await executeTool(
-        mockSlidesClient,
-        'get_page',
-        args,
-        GetPageArgsSchema,
-        getPageTool
-      );
+      const result = await executeTool(mockSlidesClient, 'get_page', args, GetPageArgsSchema, getPageTool);
 
       // Then
       expect(mockPresentationsPagesGet).not.toHaveBeenCalled();
@@ -231,13 +195,7 @@ describe('Feature: Get Page Tool', () => {
       const args = undefined;
 
       // When
-      const result = await executeTool(
-        mockSlidesClient,
-        'get_page',
-        args,
-        GetPageArgsSchema,
-        getPageTool
-      );
+      const result = await executeTool(mockSlidesClient, 'get_page', args, GetPageArgsSchema, getPageTool);
 
       // Then
       expect(mockPresentationsPagesGet).not.toHaveBeenCalled();
@@ -254,13 +212,7 @@ describe('Feature: Get Page Tool', () => {
       };
 
       // When
-      const result = await executeTool(
-        mockSlidesClient,
-        'get_page',
-        args,
-        GetPageArgsSchema,
-        getPageTool
-      );
+      const result = await executeTool(mockSlidesClient, 'get_page', args, GetPageArgsSchema, getPageTool);
 
       // Then
       expect(mockPresentationsPagesGet).not.toHaveBeenCalled();
@@ -271,7 +223,7 @@ describe('Feature: Get Page Tool', () => {
   });
 
   describe('Scenario: Google API fails', () => {
-    let consoleErrorSpy: any;
+    let consoleErrorSpy: MockInstance;
 
     beforeEach(() => {
       // Suppress console.error for these tests as errors are expected
@@ -293,13 +245,7 @@ describe('Feature: Get Page Tool', () => {
       mockPresentationsPagesGet.mockRejectedValue(apiError);
 
       // When
-      const result = await executeTool(
-        mockSlidesClient,
-        'get_page',
-        args,
-        GetPageArgsSchema,
-        getPageTool
-      );
+      const result = await executeTool(mockSlidesClient, 'get_page', args, GetPageArgsSchema, getPageTool);
 
       // Then
       expect(mockPresentationsPagesGet).toHaveBeenCalledTimes(1);
@@ -318,13 +264,7 @@ describe('Feature: Get Page Tool', () => {
       mockPresentationsPagesGet.mockRejectedValue(apiError);
 
       // When
-      const result = await executeTool(
-        mockSlidesClient,
-        'get_page',
-        args,
-        GetPageArgsSchema,
-        getPageTool
-      );
+      const result = await executeTool(mockSlidesClient, 'get_page', args, GetPageArgsSchema, getPageTool);
 
       // Then
       expect(mockPresentationsPagesGet).toHaveBeenCalledTimes(1);
@@ -343,13 +283,7 @@ describe('Feature: Get Page Tool', () => {
       mockPresentationsPagesGet.mockRejectedValue(apiError);
 
       // When
-      const result = await executeTool(
-        mockSlidesClient,
-        'get_page',
-        args,
-        GetPageArgsSchema,
-        getPageTool
-      );
+      const result = await executeTool(mockSlidesClient, 'get_page', args, GetPageArgsSchema, getPageTool);
 
       // Then
       expect(mockPresentationsPagesGet).toHaveBeenCalledTimes(1);
@@ -368,13 +302,7 @@ describe('Feature: Get Page Tool', () => {
       mockPresentationsPagesGet.mockRejectedValue(apiError);
 
       // When
-      const result = await executeTool(
-        mockSlidesClient,
-        'get_page',
-        args,
-        GetPageArgsSchema,
-        getPageTool
-      );
+      const result = await executeTool(mockSlidesClient, 'get_page', args, GetPageArgsSchema, getPageTool);
 
       // Then
       expect(mockPresentationsPagesGet).toHaveBeenCalledTimes(1);

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi, type MockInstance } from 'vitest';
 import { slides_v1 } from 'googleapis';
 import { executeTool } from '../../utils/toolExecutor.js';
 import { getPresentationTool } from '../getPresentation.js';
@@ -26,10 +26,7 @@ describe('Feature: Get Presentation Tool', () => {
       const expectedPresentation = {
         presentationId: 'presentation-123',
         title: 'My Presentation',
-        slides: [
-          { objectId: 'slide1' },
-          { objectId: 'slide2' },
-        ],
+        slides: [{ objectId: 'slide1' }, { objectId: 'slide2' }],
       };
       mockPresentationsGet.mockResolvedValue({ data: expectedPresentation });
 
@@ -86,7 +83,7 @@ describe('Feature: Get Presentation Tool', () => {
   });
 
   describe('Scenario: Invalid arguments', () => {
-    let consoleErrorSpy: any;
+    let consoleErrorSpy: MockInstance;
 
     beforeEach(() => {
       // Suppress console.error for these tests as errors are expected
@@ -160,7 +157,7 @@ describe('Feature: Get Presentation Tool', () => {
   });
 
   describe('Scenario: Google API fails', () => {
-    let consoleErrorSpy: any;
+    let consoleErrorSpy: MockInstance;
 
     beforeEach(() => {
       // Suppress console.error for these tests as errors are expected
